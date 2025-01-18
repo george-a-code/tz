@@ -1,6 +1,8 @@
 import pytest
 from pathlib import Path
 
+from tests.constants import TIMEZONE_NAMES
+
 
 @pytest.fixture(scope="session")
 def test_dir() -> Path:
@@ -15,3 +17,8 @@ def test_db_path(test_dir):
     yield test_db_path
     if test_db_path.exists():
         test_db_path.unlink()
+
+
+@pytest.fixture(scope="session")
+def timezone_example_list():
+    return TIMEZONE_NAMES

@@ -1,22 +1,35 @@
 import datetime
 import pytz
-from tabulate import tabulate
+from dataclasses import asdict, dataclass, field
+from typing import List, Optional
 
-from timezones.logger import app_logger
+from timezones.database import TimezoneDatabase
 
 
+@dataclass
 class FavouriteTimezone:
-    def __init__(self, timezone_name):
-        self.timezone_name = timezone_name
-        self.timezone = pytz.timezone(timezone_name)
-        self.region = self.timezone_name.split("/")[0]
-        self.city = self.timezone_name.split("/")[1]
+    timezone_name: str
+    region: Optional[str] = field(default=None)
+    city: Optional[str] = field(default=None)
+    timezone: Optional[datetime.tzinfo] = field(default=None)
+    id: Optional[int] = field(default=None, compare=False)
 
-        app_logger.debug(f"Favourite timezone set to {timezone_name}")
+    @classmethod
+    def from_dict(cls, data: dict) -> "FavouriteTimezone":
+        # Convert timezone to pytz object for easier serialization
+        data["timezone"] = pytz.timezone(data["timezone"])
+        instance = FavouriteTimezone(**data)
+        instance.__post_init__()
+        return instance
+
+    def to_dict(self) -> dict:
+        data = asdict(self)
+        data["timezone"] = self.timezone.zone  # convert to str for json serialization
+        return data
 
     def get_time(self, time: datetime.datetime = None) -> datetime.datetime:
         if time is None:
-            time = datetime.datetime.now(pytz.utc)
+            time = datetime.datetime.now()
         elif time.tzinfo is None:
             # Assume naive datetime is in UTC
             time = pytz.utc.localize(time)
@@ -24,49 +37,57 @@ class FavouriteTimezone:
         new_time = time.astimezone(self.timezone)
         return new_time
 
+    def __post_init__(self) -> None:
+        if self.timezone is None:
+            self.timezone = pytz.timezone(self.timezone_name)
+        if self.region is None:
+            self.region = self.timezone_name.split("/")[0]
+        if self.city is None:
+            self.city = self.timezone_name.split("/")[1]
+
     def __str__(self):
-        return f"{self.get_time()}"
+        return f"{self.city}, {self.region} - {self.timezone}"
 
 
 class FavouriteTimezonesManager:
+    def __init__(self, db_path):
+        self._dp_path = db_path
+        self._db = TimezoneDatabase(db_path)
 
-    default_datetime_format = "%m-%d %H:%M"
+    def add_timezone(self, timezone_name) -> None:
+        timezone = FavouriteTimezone(timezone_name)
+        id = self._db.create(timezone.to_dict())
+        self._db.update(id, {"id": id})
 
-    def __init__(self, datetime_format: str = None):
-        self.datetime_format = datetime_format or self.default_datetime_format
-        self.favourite_timezones = []
+    def remove_timezone(
+        self, *, city: str = None, tz_name: str = None, tz_id: int = None
+    ) -> None:
+        if tz_id:
+            self._db.remove(tz_id)
+        elif city:
+            tz_id = self._db.get_timezone(city)["id"]
+            self._db.remove(tz_id)
+        elif tz_name:
+            city = tz_name.split("/")[1]
+            tz_id = self._db.get_timezone(city)["id"]
+            self._db.remove(tz_id)
+        else:
+            raise ValueError("You must provide either city, tz_name or tz_id")
 
-    def add_timezone(self, timezone_name: str):
-        self.favourite_timezones.append(FavouriteTimezone(timezone_name))
-        app_logger.info(f"Added favourite timezone: {timezone_name}")
-
-    def remove_timezone(self, timezone_name: str):
-        self.favourite_timezones = [
-            tz for tz in self.favourite_timezones if tz.timezone_name != timezone_name
-        ]
-        app_logger.info(f"Removed favourite timezone: {timezone_name}")
-
-    def display_timezones(
+    def list_timezones(
         self,
-        time: datetime = None,
-        utc: bool = False,
-        city: bool = False,
-        region: bool = False,
-    ):
-        if time is None:
-            time = datetime.datetime.now()
-        columns = [
-            ("City", lambda tz: tz.city) if city else None,
-            ("Region", lambda tz: tz.region) if region else None,
-            (  # this column not optional
-                f"Time at {time.strftime(self.datetime_format)}",
-                lambda tz: tz.get_time().strftime(f"{self.datetime_format} %Z"),
-            ),
-            (("UTC Offset", lambda tz: tz.get_time().strftime("%z")) if utc else None),
-        ]
-        columns = [column for column in columns if column is not None]
-        headers = [column[0] for column in columns]
-        table = [
-            [column[1](tz) for column in columns] for tz in self.favourite_timezones
-        ]
-        print(tabulate(table, headers))
+        timezones_names: List[str] = None,
+    ) -> List:
+        all_timezones = self._db.get_all()
+        if timezones_names is None:
+            timezones = [FavouriteTimezone.from_dict(tz) for tz in all_timezones]
+        else:
+            timezones = [
+                FavouriteTimezone.from_dict(tz)
+                for tz in all_timezones
+                if tz["timezone_name"] in timezones_names
+            ]
+        return timezones
+
+    def close(self) -> None:
+        self._db.close()
