@@ -1,7 +1,7 @@
 import datetime
 import pytest
 
-from timezones.favourite_timezones import FavouriteTimezone
+from timezones.database.favourite_timezones import FavouriteTimezone
 from tests.constants import TIMEZONE_NAMES
 
 @pytest.mark.parametrize("timezone_name", TIMEZONE_NAMES)

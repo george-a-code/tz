@@ -3,7 +3,7 @@ import pytz
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
-from timezones.database import TimezoneDatabase
+from timezones.database.database import TimezoneDatabase
 
 
 @dataclass

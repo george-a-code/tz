@@ -2,7 +2,7 @@ import logging
 import os
 import pytest
 
-from timezones.logger import setup_logger, app_logger, get_log_level
+from timezones.utils.logger import setup_logger, app_logger, get_log_level
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPECTED_FILE_CONTENT = {

@@ -1,9 +1,16 @@
-import pytz
 import datetime
+import pytz
+import typer
 
-import timezones.parser as parser
-from timezones.logger import app_logger
-from timezones.favourite_timezones import FavouriteTimezonesManager
+import timezones.cli.parser as parser
+from timezones.utils.logger import app_logger
+from timezones.database.favourite_timezones import FavouriteTimezonesManager
+
+app = typer.Typer()
+
+@app.callback()
+def callback():
+    """tz app to check timezones"""
 
 
 def main():
@@ -33,5 +40,5 @@ def main():
 
 if __name__ == "__main__":
     app_logger.debug("Running main")
-    main()
+    typer.run(main())
     app_logger.debug("Finished running main")

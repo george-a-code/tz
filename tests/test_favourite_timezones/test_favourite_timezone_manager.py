@@ -3,7 +3,7 @@ import os
 import pytest
 from typing import List, Dict
 
-from timezones.favourite_timezones import FavouriteTimezonesManager
+from timezones.database.favourite_timezones import FavouriteTimezonesManager
 
 
 def test_adding_timezone(test_db_path, timezone_example_list):
